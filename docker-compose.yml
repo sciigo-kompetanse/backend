@@ -28,9 +28,15 @@ services:
       # via Fleet's env-vars tab on each service).
       mongodb: mongodb://root:example@mongo:27017/casket?authSource=admin
       redis: redis://redis:6379
+    # Casket's architecture: src/proxy.js listens on port 80 (configurable via
+    # `proxyport`), then forwards traffic to localhost:`port` (the feathers app
+    # on 3001 internally). Traefik must route to the *proxy* port — exposing
+    # 3001 directly bypasses the proxy and hits feathers raw, which isn't what
+    # the app expects (HTTPS termination, well-known/.acme routing, etc.
+    # all live in the proxy layer).
     ports:
-      - target: 3001
-        published: 3001
+      - target: 80
+        published: 80
     depends_on:
       - mongo
       - redis
