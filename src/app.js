@@ -24,7 +24,17 @@ const app = express(feathers())
 
 app.configure(sync({
   uri: process.env.redis || 'redis://localhost:6379',
-  key: process.env.name || 'feathers-sync'
+  key: process.env.name || 'feathers-sync',
+  // Bump connectTimeout (default ~5s) and add an exponential reconnect
+  // strategy so the redis client survives a slow-starting sibling pod / a
+  // momentary DNS hiccup. Without this, feathers-sync's pub+sub clients
+  // race during boot and one timing out crashes the whole worker.
+  redisOptions: {
+    socket: {
+      connectTimeout: 30000,
+      reconnectStrategy: retries => Math.min(retries * 200, 3000),
+    },
+  },
 }))
 
 app.configure(configuration())

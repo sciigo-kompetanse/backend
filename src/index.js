@@ -5,7 +5,20 @@ import logger from './logger.js'
 import app from './app.js'
 import initialize from './initialize.js'
 
-const cpus = os.cpus().length
+// How many cluster workers to spawn.
+//
+// `os.cpus().length` returns the *host* CPU count, which on a containerized
+// platform (Fleet/Kubernetes) is much higher than the pod's actual CPU limit.
+// With a 0.5-vCPU plan on a 4-CPU node, we'd fork 4 workers and each one
+// would spin up its own mongoose / feathers-sync redis clients, then starve
+// each other competing for 500m of CPU. Result: redis connect timeouts and
+// nothing ever binds to `port`.
+//
+// Default to a single worker (no clustering) — Fleet replicas are the
+// horizontal-scaling primitive. Set `workers=auto` to restore the original
+// "one per host CPU" behaviour, or `workers=N` for a fixed count.
+const workersEnv = (process.env.workers || process.env.WORKERS || '1').trim()
+const cpus = workersEnv === 'auto' ? os.cpus().length : Math.max(1, parseInt(workersEnv, 10) || 1)
 
 if (!cluster.isPrimary || cpus <= 1) {
 
@@ -34,7 +47,7 @@ if (!cluster.isPrimary || cpus <= 1) {
 } else {
 
   initialize(app)
-  
+
   for (let i = 0; i < cpus; i++) {
     cluster.fork()
   }
