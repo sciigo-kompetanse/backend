@@ -43,12 +43,24 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
+    # Declare the internal port explicitly: without this Fleet's compose
+    # parser defaults the Service port to the stack's primary port (casket's
+    # 3001), and casket's `mongodb://...@mongo:27017/...` then can't connect.
+    # `published: 0` keeps it ClusterIP-only (no NodePort exposed publicly).
+    ports:
+      - target: 27017
+        published: 0
     volumes:
       - mongo_data:/data/db
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    # Same story: declare the internal port so the K8s Service has 6379, not
+    # casket's 3001. ClusterIP-only.
+    ports:
+      - target: 6379
+        published: 0
     volumes:
       - redis_data:/data
     restart: unless-stopped
