@@ -23,11 +23,13 @@ yarn-error.log*
 !.env.docker.example
 !.env.example
 
-# Local TLS certs from older docker-compose setups. Fleet's Traefik terminates
-# TLS at the edge with managed Let's Encrypt; the app speaks HTTP only.
-server.crt
-server.key
-*.pem
+# NOTE: server.crt / server.key were *previously* excluded, but src/proxy.js
+# hard-loads them at boot via readFileSync(). The app crashes (ENOENT) without
+# them. They're committed self-signed dev certs and only terminate the
+# proxy's internal HTTPS port — Fleet's Traefik handles real public-facing
+# TLS, so these never face the internet. Leaving them in the image is fine.
+# If you ever make proxy.js's TLS optional, you can re-add the excludes here.
+# *.pem
 
 # Local-only data dirs (the docker-compose volume mount target).
 sites
