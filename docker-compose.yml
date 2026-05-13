@@ -1,40 +1,59 @@
-version: "3"
+# Multi-service stack — used by both:
+#   • local `docker compose up` for development
+#   • Fleet deploys: pushing this repo to Fleet auto-detects this file and
+#     deploys all three services (casket + mongo + redis) as a single stack.
+#
+# Fleet treats services WITHOUT a `build:` key as pre-built (just pulls the
+# `image:`), so mongo and redis are dropped in as-is. casket itself is built
+# from this repo's Dockerfile.
+#
+# Internal service hostnames (`mongo`, `redis`) match the service names below
+# and are resolved by Kubernetes DNS inside the stack's namespace.
+
 services:
-  airportal:
+  casket:
+    build: .
+    image: casket:latest
+    environment:
+      NODE_ENV: production
+      port: "3001"
+      # `host` is the public URL of the running app. Override per environment
+      # via Fleet's env-vars tab (or via a local `.env` for `docker compose`).
+      host: ${HOST:-http://localhost:3001}
+      lang: "en, no"
+      webmaster: "true"
+      # Connection strings point at the sibling services by name. The password
+      # below MUST match MONGO_INITDB_ROOT_PASSWORD on the mongo service — if
+      # you change it for a real deploy, edit BOTH places (or override both
+      # via Fleet's env-vars tab on each service).
+      mongodb: mongodb://root:example@mongo:27017/casket?authSource=admin
+      redis: redis://redis:6379
+    ports:
+      - target: 3001
+        published: 3001
     depends_on:
       - mongo
       - redis
-    container_name: casket
-    image: casket
     volumes:
-      - casket_volume:/usr/casket_volume
-    restart: always
-    build: .
-    ports:
-      - "80:80"
-      - "443:443"
-    links:
-      - mongo
+      - casket_data:/usr/casket_volume
+    restart: unless-stopped
+
   mongo:
-    container_name: mongo
-    image: mongo
-    volumes:
-      - mongo_volume:/data/db
-    restart: always
-    ports:
-      - "27017:27017"
+    image: mongo:7
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
-  redis: 
-    image: redis:latest
-    container_name: redis
-    restart: always
-    expose:
-      - 6379
-    volumes: 
-      - redis_volume:/data
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
 volumes:
-  mongo_volume:
-  casket_volume:
-  redis_volume:
+  casket_data:
+  mongo_data:
+  redis_data:

@@ -11,7 +11,10 @@ if (!cluster.isPrimary || cpus <= 1) {
 
   if (cpus <= 1) initialize(app)
 
-  if (process.env.port) app.set('port', process.env.port)
+  // Accept both `port` (this repo's historical convention) and `PORT`
+  // (the standard env var Fleet / most PaaS platforms inject).
+  const envPort = process.env.port || process.env.PORT
+  if (envPort) app.set('port', envPort)
   const port = app.get('port')
 
   app.listen(port).then(server => {
